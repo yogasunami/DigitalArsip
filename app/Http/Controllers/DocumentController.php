@@ -76,22 +76,27 @@ class DocumentController extends Controller
     }
 
     // Menjalankan OCR dan mendapatkan judul dari teks
-    private function runOCR($filePath)
-    {
-        try {
-            $ocrText = (new TesseractOCR($filePath))->run();
-            if (preg_match('/Perihal\s*:\s*(.*)/i', $ocrText, $matches)) {
-                $titleLine = $matches[1];  // Mengambil teks setelah "Perihal"
-                $title = strtok($titleLine, "\n");  // Menghentikan pada baris baru
-                return ['text' => $ocrText, 'title' => trim($title)];
-            }
+    public function runOCR($filePath)
+{
+    try {
+        $ocrText = (new TesseractOCR($filePath))->run();
 
-            // Jika "Perihal" tidak ditemukan, kembalikan teks OCR
-            return ['text' => $ocrText, 'title' => 'Dokumen Tanpa Perihal'];
-        } catch (\Exception $e) {
-            return ['text' => '', 'title' => '']; // Jika OCR gagal
+        // Mencari teks setelah "Perihal"
+        if (preg_match('/Perihal\s*:\s*(.*?)(?:\n|$)/i', $ocrText, $matches)) {
+            $titleLine = $matches[1];  // Mengambil teks setelah "Perihal"
+            $title = strtok(trim($titleLine), "\n");  // Menghentikan pada baris baru
+            return ['text' => $ocrText, 'title' => trim($title)];
         }
+
+        // Jika "Perihal" tidak ditemukan, kembalikan teks OCR
+        return ['text' => $ocrText, 'title' => 'Dokumen Tanpa Perihal'];
+    } catch (\Exception $e) {
+        // Jika OCR gagal, log kesalahan dan kembalikan teks kosong
+        Log::error('OCR Error: ' . $e->getMessage());
+        return ['text' => '', 'title' => '']; // Jika OCR gagal
     }
+}
+
 
     // Klasifikasi dokumen berdasarkan hasil OCR
     private function classifyDocument($ocrText)
@@ -220,6 +225,49 @@ class DocumentController extends Controller
 
         return response()->json(['success' => true, 'message' => 'Dokumen berhasil dikonversi dan disimpan.']);
     }
+
+    public function scanlgsg(Request $request)
+{
+    // Validasi file upload
+    $validated = Validator::make($request->all(), [
+        'files.*' => 'required|image|max:5120',
+    ]);
+
+    if ($validated->fails()) {
+        return response()->json(['success' => false, 'message' => $validated->errors()->first()]);
+    }
+
+    $files = $request->file('files');
+    $pdfFiles = [];
+    $title = '';
+
+    // Proses setiap file
+    foreach ($files as $index => $file) {
+        // Simpan file gambar ke penyimpanan sementara
+        $filePath = $file->store('scanned_images');
+
+        // Jalankan OCR untuk file pertama
+        if ($index === 0) {
+            $ocrResult = $this->runOCR(Storage::path($filePath));
+            $title = $ocrResult['title'];
+        }
+
+        // Simpan path file untuk konversi PDF
+        $pdfFiles[] = Storage::path($filePath);
+    }
+
+    // Gabungkan file-file menjadi satu PDF
+    $pdfPath = $this->convertImagesToPDF($pdfFiles, $title);
+
+    // Simpan ke database
+    Document::create([
+        'title' => $title,
+        'file_path' => $pdfPath,
+        'category' => 'Lainnya', // Atur kategori sesuai kebutuhan
+    ]);
+
+    return response()->json(['success' => true, 'title' => $title]);
+}
 
 
 

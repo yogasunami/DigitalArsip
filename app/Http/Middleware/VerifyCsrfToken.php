@@ -13,5 +13,8 @@ class VerifyCsrfToken extends Middleware
      */
     protected $except = [
         'scan/savescannedImages',
+        'documents/runOCR',
+        'documents/scanlgsg',
+        'scan/scanOCROnImages',
     ];
 }

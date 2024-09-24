@@ -19,8 +19,8 @@ Route::post('/scan/processOCR', [ScanController::class, 'processOCR']);
 Route::post('/scan/generatePDF', [ScanController::class, 'generatePDF']);
 Route::get('documents/{id}/download', [DocumentController::class, 'download'])->name('document.download');
 Route::get('/home', [ScanController::class, 'home'])->name('home');
-Route::post('/scan/savescannedImages', [ScanController::class, 'saveScannedImages']);
-
+Route::post('/scan/runOCROnImages', [DocumentController::class, 'runOCROnImages']);
+Route::post('/documents/scanlgsg', [DocumentController::class, 'scanlgsg']);
 
 /*
 |--------------------------------------------------------------------------

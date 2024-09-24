@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use setasign\Fpdi\Fpdi;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\File;
+use App\Http\Controllers\DocumentController;
 
 class ScanController extends Controller
 {
@@ -79,25 +80,31 @@ public function generatePDF(Request $request)
 
     public function saveScannedImages(Request $request)
     {
-        // Pastikan ada file yang diunggah
-        if (!$request->hasFile('scannedImages')) {
-            return response()->json(['success' => false, 'message' => 'Tidak ada gambar yang diunggah.']);
-        }
+        try {
+            // Validasi data input
+            $request->validate([
+                'scannedImages' => 'required|array',
+                'scannedImages.*' => 'image|mimes:jpeg,jpg,png|max:5120',
+            ]);
     
-        $scannedImages = $request->file('scannedImages');
+            $scannedImages = $request->file('scannedImages');
+            $ocrResults = [];
     
-        foreach ($scannedImages as $image) {
-            // Validasi setiap file gambar jika diperlukan
-            if ($image->isValid()) {
-                // Simpan gambar ke direktori yang diinginkan, misalnya 'public/scanned_images'
-                $fileName = 'scanned_image_' . time() . '_' . $image->getClientOriginalName();
-                $image->storeAs('public/scanned_images', $fileName);
-            } else {
-                return response()->json(['success' => false, 'message' => 'Gagal mengunggah gambar.']);
+            foreach ($scannedImages as $image) {
+                if ($image->isValid()) {
+                    // Simpan gambar ke direktori yang diinginkan
+                    $fileName = 'scanned_image_' . time() . '_' . $image->getClientOriginalName();
+                    $filePath = $image->storeAs('public/scanned_images', $fileName);
+    
+                    // Menjalankan OCR
+                    $ocrResult = (new DocumentController())->runOCR(Storage::path($filePath));
+                    $ocrResults[] = $ocrResult; // Menyimpan hasil OCR
+                }
             }
-        }
     
-        return response()->json(['success' => true, 'message' => 'Semua gambar berhasil disimpan.']);
+            return response()->json(['success' => true, 'ocrResults' => $ocrResults]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
     }
-            
-}    
+    }    

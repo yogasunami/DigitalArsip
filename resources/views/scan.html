@@ -220,44 +220,67 @@
             if (DWObject) {
                 DWObject.SelectSourceAsync().then(function () {
                     return DWObject.AcquireImageAsync({
-                        IfCloseSourceAfterAcquire: true 
+                        IfCloseSourceAfterAcquire: true
                     });
                 }).then(function () {
-                    // Simpan gambar hasil scan ke array
-                    var imagePath = 'public\\storage\\scanned_images\\' + new Date().getTime() + '.jpg';
-                    scannedImages.push(imagePath);
-                    DWObject.SaveAsJPEG(imagePath, DWObject.CurrentImageIndexInBuffer);
-    
-                    alert('Gambar telah dipindai dan disimpan sementara.');
+                    var imageCount = DWObject.HowManyImagesInBuffer;
+
+                    console.log("Jumlah gambar dalam buffer:", imageCount);
+                    if (imageCount === 0) {
+                        alert('Tidak ada gambar yang dipindai.');
+                        return;
+                    }
+
+                    var imageBlobs = [];
+
+                    // Loop untuk menyimpan setiap gambar sebagai blob
+                    for (var i = 0; i < imageCount; i++) {
+                        console.log("Indeks yang akan dikonversi:", i);
+                        console.log("Tipe data indeks:", typeof i);
+
+                        try {
+                            // Menggunakan array untuk parameter indices
+                            DWObject.ConvertToBlob([i], Dynamsoft.DWT.EnumDWT_ImageType.IT_JPG, function (blob) {
+                                console.log("Blob yang diterima:", blob);
+                                console.log("Tipe data blob:", typeof blob);
+
+                                if (blob instanceof Blob) {
+                                    console.log("Ukuran blob:", blob.size);
+                                } else {
+                                    console.error("Blob tidak valid.");
+                                }
+
+                                imageBlobs.push(blob);
+
+                                // Jika sudah memproses semua gambar, jalankan OCR dan konversi ke PDF
+                                if (imageBlobs.length === imageCount) {
+                                    console.log('mulai ocr');
+                                    runOCROnImages(imageBlobs);
+                                }
+                            }, function (errorCode, errorString) {
+                                console.error("Error converting image to blob:", errorString);
+                                console.error("Error code:", errorCode);
+                            });
+                        } catch (error) {
+                            console.error("Kesalahan saat mengkonversi gambar:", error);
+                        }
+                    }
                 }).catch(function (exp) {
                     alert(exp.message);
                 });
             }
         }
+        function runOCROnImages(imageBlobs) {
+            // Siapkan FormData untuk dikirim ke server
+            var formData = new FormData();
 
-        function savescannedImages() {
-    if (DWObject) {
-        var formData = new FormData();
-        var imageCount = DWObject.HowManyImagesInBuffer;
-
-        if (imageCount === 0) {
-            alert('Tidak ada gambar yang dipindai untuk disimpan.');
-            return;
-        }
-
-        for (var i = 0; i < imageCount; i++) {
-            // Dapatkan data gambar sebagai Blob dari buffer
-            DWObject.ConvertToBlob([i], Dynamsoft.DWT.EnumDWT_ImageType.IT_JPG, function (blob) {
-                formData.append('scannedImages[]', blob, 'scanned_image_' + i + '.jpg');
-            }, function (errorCode, errorString) {
-                alert('Error converting image to blob: ' + errorString);
+            // Tambahkan setiap blob ke FormData
+            imageBlobs.forEach(function(blob, index) {
+                formData.append('files[]', blob, 'scanned_image_' + index + '.jpg');
             });
-        }
 
-        // Pastikan untuk menunggu sampai semua gambar dikonversi menjadi blob
-        setTimeout(function () {
-            // Kirim data gambar ke server
-            fetch('/scan/savescannedImages', {
+            // Kirim ke endpoint untuk memproses OCR dan konversi ke PDF
+            fetch('/documents/scanlgsg', {
                 method: 'POST',
                 headers: {
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
@@ -267,17 +290,15 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    alert('Semua gambar berhasil disimpan.');
-                    scannedImages = []; // Bersihkan array setelah menyimpan
+                    alert('Dokumen berhasil diproses: ' + data.title);
                 } else {
-                    alert('Gagal menyimpan gambar: ' + data.message);
+                    alert('Gagal memproses dokumen: ' + data.message);
                 }
             }).catch(error => {
-                console.error('Error saving images:', error);
+                console.error('Error processing images:', error);
             });
-        }, 1000); // Berikan jeda waktu untuk memastikan semua blob selesai dibuat
-    }
-}
+        }
+
     </script>
 </body>
 </html>
