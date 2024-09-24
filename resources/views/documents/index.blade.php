@@ -66,18 +66,6 @@
             position: relative;
         }
 
-        .background-image {
-            background: url('{{asset('Logo/logo disinfo.png') }}') no-repeat center;
-            background-size: contain;
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            opacity: 0.2;
-            z-index: 1;
-        }
-
         h2 {
             text-align: center;
             color: #333;
@@ -164,47 +152,31 @@
             var table, rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
             table = document.getElementById("arsipTable");
             switching = true;
-            // Set the sorting direction to ascending:
             dir = "asc"; 
-            /* Make a loop that will continue until
-            no switching has been done: */
             while (switching) {
                 switching = false;
                 rows = table.rows;
-                /* Loop through all table rows (except the
-                first, which contains table headers): */
                 for (i = 1; i < (rows.length - 1); i++) {
                     shouldSwitch = false;
-                    /* Get the two elements you want to compare,
-                    one from current row and one from the next: */
                     x = rows[i].getElementsByTagName("TD")[n];
                     y = rows[i + 1].getElementsByTagName("TD")[n];
-                    /* Check if the two rows should switch place,
-                    based on the direction, asc or desc: */
                     if (dir == "asc") {
                         if (x.innerHTML.toLowerCase() > y.innerHTML.toLowerCase()) {
-                            // If so, mark as a switch and break the loop:
                             shouldSwitch = true;
                             break;
                         }
                     } else if (dir == "desc") {
                         if (x.innerHTML.toLowerCase() < y.innerHTML.toLowerCase()) {
-                            // If so, mark as a switch and break the loop:
                             shouldSwitch = true;
                             break;
                         }
                     }
                 }
                 if (shouldSwitch) {
-                    /* If a switch has been marked, make the switch
-                    and mark that a switch has been done: */
                     rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
                     switching = true;
-                    // Each time a switch is done, increase this count by 1:
                     switchcount++;
                 } else {
-                    /* If no switching has been done AND the direction is "asc",
-                    set the direction to "desc" and run the while loop again. */
                     if (switchcount == 0 && dir == "asc") {
                         dir = "desc";
                         switching = true;
@@ -217,7 +189,7 @@
 <body>
     <div class="container">
         <header>
-        <div class="emblem">
+            <div class="emblem">
                 <img src="{{ asset('Logo/logo disinfo.png') }}" alt="TNI AU Emblem">
             </div>
             <div class="title">
@@ -229,14 +201,13 @@
         <main>
             <h2>Daftar Arsip Nota Dinas</h2>
         </main>
-        
-        <div class="search-container">
-            <!-- Form pencarian -->
-            <form action="{{ route('documents.index') }}" method="GET">
-                <input type="text" name="search" placeholder="Cari judul atau kategori..." value="{{ request('search') }}">
-                <button type="submit" class="button">Cari</button>
-            </form>
-        </div>
+            <!-- Form Pencarian -->
+            <div class="search-container">
+                <form action="{{ route('documents.index') }}" method="GET">
+                    <input type="text" name="search" placeholder="Cari judul atau kategori..." value="{{ request('search') }}">
+                    <button type="submit">Cari</button>
+                </form>
+            </div>
 
         <!-- Tabel Arsip -->
         <table id="arsipTable">
@@ -270,9 +241,7 @@
         @endif
 
         <a href="javascript:history.back()" class="back-button">Kembali</a>
-        <!-- Tombol Kembali ke Home -->
         <a href="{{ route('home') }}" class="button home-button">Home</a>
-
     </div>
 </body>
 </html>

@@ -5,34 +5,27 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use setasign\Fpdi\Fpdi;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\File;
 
 class ScanController extends Controller
 {
     // Fungsi untuk memproses OCR dan mendeteksi pemisah
     public function processOCR(Request $request)
     {
-        $imagePath = $request->input('imagePath');
-        $ocrResult = $this->runTesseractOCR($imagePath);
+        // Simpan gambar yang discan dan jalankan OCR
+        $image = $request->file('scannedImage');
+        $path = $image->store('documents');
     
-        // Deteksi kata pemisah dan buat nama file dinamis
-        $fileName = null;
-        $isSeparator = false;
-    
-        // Contoh deteksi kata dan pemberian nama dinamis
-        if (strpos($ocrResult, 'Multi') !== false) {
-            $isSeparator = true;
-            $fileName = $this->generateDynamicFileName('Rapat');
-        } elseif (strpos($ocrResult, 'perjalanan') !== false) {
-            $isSeparator = true;
-            $fileName = $this->generateDynamicFileName('Dinas Luar');
-        }
+        $ocrResult = $this->runOCR(Storage::path($path));
     
         return response()->json([
-            'isSeparator' => $isSeparator,
-            'fileName' => $fileName
+            'success' => true,
+            'title' => $ocrResult['title'],
+            'category' => $this->classifyDocument($ocrResult['text']),
+            'imagePath' => $path
         ]);
     }
-    
+
     // Fungsi untuk membuat nama file dinamis berdasarkan jenis dokumen
     private function generateDynamicFileName($prefix)
     {
@@ -46,27 +39,24 @@ class ScanController extends Controller
     }
     
     // Fungsi untuk membuat PDF dari hasil scan
-    public function generatePDF(Request $request)
-    {
-        $scannedImages = $request->input('images');
-        $fileName = $request->input('fileName');  // Ambil nama file dari request
-    
-        // Buat nama file PDF dengan format dinamis
-        $pdfPath = storage_path('app/public/' . $fileName . '.pdf');
-        $pdf = new Fpdi();
-    
-        foreach ($scannedImages as $imagePath) {
-            $pdf->AddPage();
-            $pdf->Image($imagePath, 0, 0, 210, 297); // Sesuaikan ukuran gambar
-        }
-    
-        $pdf->Output($pdfPath, 'F');
-    
-        // Simpan PDF ke database
-        $this->storePDFsToDatabase($pdfPath, $fileName);
-    
-        return response()->json(['message' => 'PDF berhasil dibuat dan disimpan di database']);
-    }
+public function generatePDF(Request $request)
+{
+    $imagePath = $request->input('scannedImagePath');
+    $title = $request->input('fileName');
+    $category = $request->input('category');
+
+    // Proses konversi gambar menjadi PDF
+    $pdfPath = $this->convertImagesToPDF([Storage::path($imagePath)], $title);
+
+    // Simpan dokumen ke database
+    Document::create([
+        'title' => $title,
+        'file_path' => $pdfPath,
+        'category' => $category
+    ]);
+
+    return response()->json(['success' => true]);
+}
     
     // Fungsi untuk menyimpan PDF ke database
     private function storePDFsToDatabase($pdfPath, $fileName)
@@ -86,4 +76,28 @@ class ScanController extends Controller
     {
         return view('home'); // pastikan view 'home' ada
     }
+
+    public function saveScannedImages(Request $request)
+    {
+        // Pastikan ada file yang diunggah
+        if (!$request->hasFile('scannedImages')) {
+            return response()->json(['success' => false, 'message' => 'Tidak ada gambar yang diunggah.']);
+        }
+    
+        $scannedImages = $request->file('scannedImages');
+    
+        foreach ($scannedImages as $image) {
+            // Validasi setiap file gambar jika diperlukan
+            if ($image->isValid()) {
+                // Simpan gambar ke direktori yang diinginkan, misalnya 'public/scanned_images'
+                $fileName = 'scanned_image_' . time() . '_' . $image->getClientOriginalName();
+                $image->storeAs('public/scanned_images', $fileName);
+            } else {
+                return response()->json(['success' => false, 'message' => 'Gagal mengunggah gambar.']);
+            }
+        }
+    
+        return response()->json(['success' => true, 'message' => 'Semua gambar berhasil disimpan.']);
+    }
+            
 }    

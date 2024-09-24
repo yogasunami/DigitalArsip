@@ -4,8 +4,9 @@ use App\Http\Controllers\DocumentController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ScanController;
 
-Route::post('/documents', [DocumentController::class, 'index']);
+Route::get('/documents', [DocumentController::class, 'index'])->name('documents.index');
 Route::get('/documents/{id}', [DocumentController::class, 'show'])->name('documents.show');
+Route::post('/documents', [DocumentController::class, 'store'])->name('documents.store');
 Route::get('/', [ScanController::class, 'home']);
 Route::get('/scan',[ScanController::class, 'scanWithWIA']);
 Route::get('/scan/index',[ScanController::class, 'index']);
@@ -18,6 +19,7 @@ Route::post('/scan/processOCR', [ScanController::class, 'processOCR']);
 Route::post('/scan/generatePDF', [ScanController::class, 'generatePDF']);
 Route::get('documents/{id}/download', [DocumentController::class, 'download'])->name('document.download');
 Route::get('/home', [ScanController::class, 'home'])->name('home');
+Route::post('/scan/savescannedImages', [ScanController::class, 'saveScannedImages']);
 
 
 /*

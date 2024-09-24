@@ -3,9 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Scan Nota Dinas</title>
     <script type="text/javascript" src="Resources/dynamsoft.webtwain.initiate.js"></script>
     <script type="text/javascript" src="Resources/dynamsoft.webtwain.config.js"></script>
+    <script type="text/javascript" src="Resources/addon/dynamsoft.webtwain.addon.pdf.js"></script>
     <style>
         /* Styling (same as your original scan.html) */
         body {
@@ -194,7 +196,7 @@
                 <input type="button" value="Scan" onclick="AcquireImage();" />
 
                 <!-- Tombol Convert to PDF -->
-                <input type="button" value="Convert to PDF & Save" onclick="convertToPDF();" />
+                <input type="button" value="Save" onclick="savescannedImages();" />
 
                 <!-- Tombol Home -->
                 <a href="/home" class="home-button">Home</a>
@@ -226,100 +228,56 @@
                     scannedImages.push(imagePath);
                     DWObject.SaveAsJPEG(imagePath, DWObject.CurrentImageIndexInBuffer);
     
-                    // Setelah scan selesai, lanjutkan ke OCR
-                    processOCR(imagePath);
+                    alert('Gambar telah dipindai dan disimpan sementara.');
                 }).catch(function (exp) {
                     alert(exp.message);
                 });
             }
         }
-    
-        function processOCR(imagePath) {
-            fetch('/scan/processOCR', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ imagePath: imagePath })
-            }).then(response => response.json())
-              .then(data => {
-                // Ambil perihal sebelum baris baru untuk nama file
-                var perihal = extractPerihal(data.ocrText);
-                var fileName = generateFileName(perihal);
 
-                // Tentukan kategori berdasarkan perihal
-                var category = classifyDocument(perihal);
+        function savescannedImages() {
+    if (DWObject) {
+        var formData = new FormData();
+        var imageCount = DWObject.HowManyImagesInBuffer;
 
-                // Simpan informasi sementara untuk digunakan saat konversi PDF
-                localStorage.setItem('fileName', fileName);
-                localStorage.setItem('category', category);
+        if (imageCount === 0) {
+            alert('Tidak ada gambar yang dipindai untuk disimpan.');
+            return;
+        }
 
-                alert('OCR berhasil! Tekan tombol Convert to PDF untuk menyimpan file.');
-            }).catch(error => {
-                console.error('Error processing OCR:', error);
+        for (var i = 0; i < imageCount; i++) {
+            // Dapatkan data gambar sebagai Blob dari buffer
+            DWObject.ConvertToBlob([i], Dynamsoft.DWT.EnumDWT_ImageType.IT_JPG, function (blob) {
+                formData.append('scannedImages[]', blob, 'scanned_image_' + i + '.jpg');
+            }, function (errorCode, errorString) {
+                alert('Error converting image to blob: ' + errorString);
             });
         }
 
-        // Fungsi untuk mengekstrak "perihal" sebelum baris baru
-        function extractPerihal(ocrText) {
-            var lines = ocrText.split('\n');
-            return lines[0].trim(); // Ambil kalimat pertama sebagai "perihal"
-        }
-
-        // Fungsi untuk membuat nama file berdasarkan "perihal"
-        function generateFileName(perihal) {
-            return perihal.replace(/\s+/g, '_').replace(/[^\w\-]/g, '') + '.pdf'; // Mengganti spasi dengan underscore dan menghapus karakter khusus
-        }
-
-        // Fungsi untuk klasifikasi berdasarkan kata kunci di "perihal"
-        function classifyDocument(perihal) {
-            if (perihal.includes('Rapat, Pertemuan, Kumpul')) {
-                return 'Rapat';
-            } else if (perihal.includes('Perjalanan, Dinas Luar') || perihal.includes('Dinas Luar')) {
-                return 'Dinas Luar';
-            } else if (perihal.includes('Daftar, List, Urutan') || perihal.includes('Dinas Luar')) {
-                return 'Daftar';
-            } else if (perihal.includes('Revisi, Penyesuaian')) {
-                return 'Revisi';
-            } else {
-                return 'Unclassified';
-            }
-        }
-    
-        function convertToPDF() {
-            var fileName = localStorage.getItem('fileName');
-            var category = localStorage.getItem('category');
-            
-            if (scannedImages.length === 0) {
-                alert('Tidak ada gambar yang dipindai.');
-                return;
-            }
-    
-            fetch('/scan/convertToPDF', {
+        // Pastikan untuk menunggu sampai semua gambar dikonversi menjadi blob
+        setTimeout(function () {
+            // Kirim data gambar ke server
+            fetch('/scan/savescannedImages', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
                 },
-                body: JSON.stringify({
-                    scannedImages: scannedImages,
-                    fileName: fileName,
-                    category: category
-                })
-            }).then(response => response.json())
-              .then(data => {
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
                 if (data.success) {
-                    alert('Dokumen berhasil dikonversi ke PDF dan disimpan.');
-                    // Bersihkan hasil scan
-                    scannedImages = [];
-                    localStorage.removeItem('fileName');
-                    localStorage.removeItem('category');
+                    alert('Semua gambar berhasil disimpan.');
+                    scannedImages = []; // Bersihkan array setelah menyimpan
                 } else {
-                    alert('Gagal menyimpan dokumen.');
+                    alert('Gagal menyimpan gambar: ' + data.message);
                 }
             }).catch(error => {
-                console.error('Error converting to PDF:', error);
+                console.error('Error saving images:', error);
             });
-        }
+        }, 1000); // Berikan jeda waktu untuk memastikan semua blob selesai dibuat
+    }
+}
     </script>
 </body>
 </html>

@@ -97,27 +97,25 @@ class DocumentController extends Controller
     private function classifyDocument($ocrText)
     {
         if (preg_match('/Perihal\s*:\s*(.*)/i', $ocrText, $matches)) {
-            $perihalText = strtok($matches[1], "\n");  // Mengambil teks setelah "Perihal"
+            $perihalText = strtok($matches[1], "\n");
 
-            $keywordsRapat = ['rapat', 'pertemuan', 'meeting', 'kumpul'];
-            $keywordsDinasLuar = ['perjalanan', 'dinas luar'];
-            $keywordsDaftar = ['daftar', 'list', 'urutan'];
+            $keywords = [
+                'Rapat' => ['rapat', 'pertemuan', 'meeting', 'kumpul'],
+                'Dinas Luar' => ['perjalanan', 'dinas luar'],
+                'Daftar' => ['daftar', 'list', 'urutan'],
+                'Acara' => ['acara', 'perpisahan', 'perayaan', 'seminar'],
+                'Permohonan' => ['pengajuan', 'permohonan', 'perizinan'],
+                'Jadwal' => ['Jadwal', 'Urutan'],
+                'Pelaksanaan' => ['kegiatan', 'giat', 'pelaksanaan'],
+                'Pengerahan' => ['pengerahan, ']
 
-            foreach ($keywordsRapat as $keyword) {
-                if (stripos($perihalText, $keyword) !== false) {
-                    return 'Rapat';
-                }
-            }
+            ];
 
-            foreach ($keywordsDinasLuar as $keyword) {
-                if (stripos($perihalText, $keyword) !== false) {
-                    return 'Dinas Luar';
-                }
-            }
-
-            foreach ($keywordsDaftar as $keyword) {
-                if (stripos($perihalText, $keyword) !== false) {
-                    return 'Daftar';
+            foreach ($keywords as $category => $words) {
+                foreach ($words as $keyword) {
+                    if (stripos($perihalText, $keyword) !== false) {
+                        return $category;
+                    }
                 }
             }
 
@@ -126,7 +124,7 @@ class DocumentController extends Controller
 
         return 'Lainnya';
     }
-    // Menampilkan dokumen
+        // Menampilkan dokumen
     public function show($id)
     {
         $document = Document::findOrFail($id); // Gunakan findOrFail untuk validasi ID
@@ -146,5 +144,83 @@ class DocumentController extends Controller
             'Content-Type' => 'application/pdf',
         ]);
     }
+
+    public function index(Request $request)
+    {
+        // Ambil query pencarian dari input form
+        $search = $request->input('search');
+
+        // Query untuk mendapatkan dokumen berdasarkan pencarian
+        $documents = Document::query()
+            ->when($search, function ($query, $search) {
+                return $query->where('title', 'like', '%' . $search . '%')
+                             ->orWhere('category', 'like', '%' . $search . '%');
+            })
+            ->get();
+
+        // Kembalikan view dengan hasil pencarian
+        return view('documents.index', compact('documents'));
+    }
+
+    public function store(Request $request)
+    {
+        // Validasi file dan input lainnya
+        $request->validate([
+            'scanned_file' => 'required|mimes:pdf|max:10000',
+        ]);
+
+        // Simpan file
+        if ($request->hasFile('scanned_file')) {
+            $file = $request->file('scanned_file');
+            $filePath = $file->store('documents'); // Simpan ke folder 'documents'
+
+            // Simpan informasi ke database
+            Document::create([
+                'title' => 'Nama File', // Atau dari OCR atau input lain
+                'file_path' => $filePath,
+                'category' => 'kategori yang sesuai',
+                'created_at' => now(),
+            ]);
+
+            return redirect()->route('documents.index')->with('success', 'File berhasil disimpan');
+        }
+
+        return back()->with('error', 'Gagal menyimpan file');
+    }
+
+    public function convertToPDF(Request $request)
+    {
+        // Ambil data dari request
+        $scannedImages = $request->input('scannedImages');
+        $fileName = $request->input('fileName');
+        $category = $request->input('category');
+
+        // Cek apakah ada gambar yang discan
+        if (empty($scannedImages)) {
+            return response()->json(['success' => false, 'message' => 'Tidak ada gambar yang dipindai.']);
+        }
+
+        // Path untuk menyimpan file PDF
+        $pdfPath = storage_path('app/public/documents/' . $fileName);
+
+        // Mengonversi gambar ke PDF (gunakan library seperti Dompdf, TCPDF, atau setImage in FPDF)
+        $pdf = new \FPDF(); // Misalnya menggunakan FPDF
+        foreach ($scannedImages as $image) {
+            $pdf->AddPage();
+            $pdf->Image(storage_path('app/' . $image), 10, 10, 190); // Sesuaikan dengan ukuran halaman
+        }
+        $pdf->Output($pdfPath, 'F'); // Simpan file PDF
+
+        // Simpan informasi PDF ke database
+        Document::create([
+            'title' => pathinfo($fileName, PATHINFO_FILENAME), // Hanya nama file tanpa extension
+            'file_path' => 'documents/' . $fileName, // Relative path
+            'category' => $category,
+        ]);
+
+        return response()->json(['success' => true, 'message' => 'Dokumen berhasil dikonversi dan disimpan.']);
+    }
+
+
 
 }
