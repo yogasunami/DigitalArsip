@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scan Nota Dinas</title>
+    <script type="text/javascript" src="Resources/dynamsoft.webtwain.initiate.js"></script>
+    <script type="text/javascript" src="Resources/dynamsoft.webtwain.config.js"></script>
+    <style>
+        /* Styling (same as your original scan.html) */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f6ff;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 100vh;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            height: 100vh;
+        }
+
+        header {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #002366;
+            width: 100%;
+            padding: 20px;
+            color: white;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 100;
+        }
+
+        .emblem {
+            position: absolute;
+            left: 50px;
+        }
+
+        .emblem img {
+            width: 120px;
+        }
+
+        .title {
+            text-align: center;
+        }
+
+        .title h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
+
+        .title p {
+            font-size: 1.2em;
+        }
+
+        main {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-grow: 1;
+            margin-top: 150px; /* Push content below the fixed header */
+            position: relative;
+        }
+
+        /* Background logo for main, with separate opacity */
+        .background-image {
+            background: url('/Logo/logo disinfo.png') no-repeat center;
+            background-size: contain;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            opacity: 0.2;
+            z-index: 1;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 20px;
+            position: relative;
+            z-index: 2; /* Ensure buttons are on top of background image */
+        }
+
+        .button {
+            background-color: #002366;
+            color: white;
+            padding: 15px 30px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-size: 1.2em;
+            font-weight: bold;
+            transition: background-color 0.3s ease;
+        }
+
+        .button:hover {
+            background-color: #0044cc;
+        }
+
+        footer {
+            text-align: center;
+            font-size: 0.9em;
+            color: #555;
+            padding: 20px;
+            background-color: #f4f6ff;
+        }
+
+        /* Scan container styling */
+        .scan-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            z-index: 2;
+            margin-top: 50px;
+        }
+
+        .scan-container h2 {
+            color: #333;
+            font-size: 2em;
+        }
+
+        #dwtcontrolContainer {
+            margin: 20px 0;
+            height: 200px;
+            width: 400px;
+            border: 1px solid #ccc;
+            z-index: 1;
+        }
+
+        input[type="button"] {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1.2em;
+            margin-top: 170px;
+        }
+
+        input[type="button"]:hover {
+            background-color: #218838;
+        }
+
+        .home-button {
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            margin-top: 20px;
+            font-size: 1.2em;
+            display: inline-block;
+            cursor: pointer;
+            z-index: 3;
+        }
+
+        .home-button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="emblem">
+                <img src="/Logo/logo disinfo.png" alt="TNI AU Emblem">
+            </div>
+            <div class="title">
+                <h1>DIANODIN</h1>
+                <p>Digitalisasi Arsip Nota Dinas Disinfolahta TNI AU</p>
+            </div>
+        </header>
+
+        <main>
+            <div class="background-image"></div> <!-- Background image element -->
+            <div class="scan-container">
+                <h2>Scan Nota Dinas</h2>
+
+                <!-- Tempat untuk Web Twain Control -->
+                <div id="dwtcontrolContainer"></div>
+
+                <!-- Tombol Scan -->
+                <input type="button" value="Scan" onclick="AcquireImage();" />
+
+                <!-- Tombol Convert to PDF -->
+                <input type="button" value="Convert to PDF & Save" onclick="convertToPDF();" />
+
+                <!-- Tombol Home -->
+                <a href="/home" class="home-button">Home</a>
+            </div>
+        </main>
+
+        <footer>
+            <p>&copy; 2024 Yoga Sunami - All rights reserved</p>
+        </footer>
+    </div>
+
+    <script type="text/javascript">
+        var DWObject;
+        var scannedImages = []; // Array untuk menampung hasil scan
+    
+        function Dynamsoft_OnReady() {
+            DWObject = Dynamsoft.DWT.GetWebTwain('dwtcontrolContainer');
+        }
+
+        function AcquireImage() {
+            if (DWObject) {
+                DWObject.SelectSourceAsync().then(function () {
+                    return DWObject.AcquireImageAsync({
+                        IfCloseSourceAfterAcquire: true 
+                    });
+                }).then(function () {
+                    // Simpan gambar hasil scan ke array
+                    var imagePath = 'public\\storage\\scanned_images\\' + new Date().getTime() + '.jpg';
+                    scannedImages.push(imagePath);
+                    DWObject.SaveAsJPEG(imagePath, DWObject.CurrentImageIndexInBuffer);
+    
+                    // Setelah scan selesai, lanjutkan ke OCR
+                    processOCR(imagePath);
+                }).catch(function (exp) {
+                    alert(exp.message);
+                });
+            }
+        }
+    
+        function processOCR(imagePath) {
+            fetch('/scan/processOCR', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ imagePath: imagePath })
+            }).then(response => response.json())
+              .then(data => {
+                // Ambil perihal sebelum baris baru untuk nama file
+                var perihal = extractPerihal(data.ocrText);
+                var fileName = generateFileName(perihal);
+
+                // Tentukan kategori berdasarkan perihal
+                var category = classifyDocument(perihal);
+
+                // Simpan informasi sementara untuk digunakan saat konversi PDF
+                localStorage.setItem('fileName', fileName);
+                localStorage.setItem('category', category);
+
+                alert('OCR berhasil! Tekan tombol Convert to PDF untuk menyimpan file.');
+            }).catch(error => {
+                console.error('Error processing OCR:', error);
+            });
+        }
+
+        // Fungsi untuk mengekstrak "perihal" sebelum baris baru
+        function extractPerihal(ocrText) {
+            var lines = ocrText.split('\n');
+            return lines[0].trim(); // Ambil kalimat pertama sebagai "perihal"
+        }
+
+        // Fungsi untuk membuat nama file berdasarkan "perihal"
+        function generateFileName(perihal) {
+            return perihal.replace(/\s+/g, '_').replace(/[^\w\-]/g, '') + '.pdf'; // Mengganti spasi dengan underscore dan menghapus karakter khusus
+        }
+
+        // Fungsi untuk klasifikasi berdasarkan kata kunci di "perihal"
+        function classifyDocument(perihal) {
+            if (perihal.includes('Rapat, Pertemuan, Kumpul')) {
+                return 'Rapat';
+            } else if (perihal.includes('Perjalanan, Dinas Luar') || perihal.includes('Dinas Luar')) {
+                return 'Dinas Luar';
+            } else if (perihal.includes('Daftar, List, Urutan') || perihal.includes('Dinas Luar')) {
+                return 'Daftar';
+            } else if (perihal.includes('Revisi, Penyesuaian')) {
+                return 'Revisi';
+            } else {
+                return 'Unclassified';
+            }
+        }
+    
+        function convertToPDF() {
+            var fileName = localStorage.getItem('fileName');
+            var category = localStorage.getItem('category');
+            
+            if (scannedImages.length === 0) {
+                alert('Tidak ada gambar yang dipindai.');
+                return;
+            }
+    
+            fetch('/scan/convertToPDF', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    scannedImages: scannedImages,
+                    fileName: fileName,
+                    category: category
+                })
+            }).then(response => response.json())
+              .then(data => {
+                if (data.success) {
+                    alert('Dokumen berhasil dikonversi ke PDF dan disimpan.');
+                    // Bersihkan hasil scan
+                    scannedImages = [];
+                    localStorage.removeItem('fileName');
+                    localStorage.removeItem('category');
+                } else {
+                    alert('Gagal menyimpan dokumen.');
+                }
+            }).catch(error => {
+                console.error('Error converting to PDF:', error);
+            });
+        }
+    </script>
+</body>
+</html>
