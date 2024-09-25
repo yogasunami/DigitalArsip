@@ -186,7 +186,10 @@
                 <p>Kategori: {{ $document->category }}</p>
 
                 <!-- Preview PDF -->
-                <embed src="{{ Storage::url($document->file_path) }}" type="application/pdf"/>
+                <iframe src="{{ route('documents.view', pathinfo($document->file_path, PATHINFO_BASENAME)) }}" width="100%" height="600px">
+                    This browser does not support PDFs. Please download the PDF to view it: 
+                    <a href="{{ route('documents.view', pathinfo($document->file_path, PATHINFO_BASENAME)) }}">Download PDF</a>
+                </iframe>
 
                 <!-- Tombol Download PDF -->
                 <a href="{{ route('document.download', $document->id) }}" class="btn">Download PDF</a>

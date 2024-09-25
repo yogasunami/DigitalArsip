@@ -3,6 +3,8 @@
 use App\Http\Controllers\DocumentController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ScanController;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Response;
 
 Route::get('/documents', [DocumentController::class, 'index'])->name('documents.index');
 Route::get('/documents/{id}', [DocumentController::class, 'show'])->name('documents.show');
@@ -36,6 +38,8 @@ Route::post('/documents/scanlgsg', [DocumentController::class, 'scanlgsg']);
 #Route::get('/', function () {
 #    return view('welcome');
 #});
+
+
 Route::get('/documents/view/{filename}', function ($filename) {
     $path = storage_path('app/documents/' . $filename);
 
@@ -47,7 +51,7 @@ Route::get('/documents/view/{filename}', function ($filename) {
     $type = File::mimeType($path);
 
     return response($file, 200)->header("Content-Type", $type);
-});
+})->name('documents.view');
 
 Route::get('/show-pdf', function () {
     return view('show_pdf');
